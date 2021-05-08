@@ -18,6 +18,9 @@ int fFlag = 0;
 // Struct
 struct IORequest {
     IORequest(int t, int tr) : time(t), track(tr) {}
+    void print(){
+        printf("time[%d], track[%d]\n", time, track); 
+    }
     int time;
     int track;
 };
@@ -49,8 +52,8 @@ class FLOOK : public IOScheduler{
 
 };
 
-// Global
-queue<IORequest*> requestQueue;
+// Prototype functions
+void simulation(IOScheduler*, queue<IORequest*>&);
 
 int main(int argc, char* argv[]) {
     int c;
@@ -102,28 +105,43 @@ int main(int argc, char* argv[]) {
     //Gettng file names
     char* inputFile = argv[optind];
     
-    //Opening random value file and creating random number generator
+    //Opening input file
     ifstream ifs(inputFile);
     if (!ifs) {
         cerr << "Error: Could not open the rfile.\n";
         exit(1);
     }
-    int time,track;
+    int time, track;
     string line;
+    queue<IORequest*> requestQueue;
     while (getline(ifs, line)) {
         if (line[0] == '#') {
             continue;
         }
         istringstream iss(line);
-        iss >> time >> track; //number of procs
-        cout << time << " " << track << endl;
+        iss >> time >> track;
         requestQueue.push(new IORequest(time,track));
     }
-    
     ifs.close();
+
+    // Simulation
+    simulation(myIOSched, requestQueue);
+
+    // Clean up
     delete myIOSched;
     while (!requestQueue.empty()){
         delete requestQueue.front();
+        requestQueue.pop();
+    }
+}
+
+void simulation(IOScheduler* myIOSched, queue<IORequest*>& requestQueue){
+    int currentTime = 0;
+    IORequest* temp;
+    while (!requestQueue.empty()){
+        temp = requestQueue.front();
+        temp->print();
+        delete temp;
         requestQueue.pop();
     }
 }
