@@ -53,7 +53,7 @@ class FLOOK : public IOScheduler{
 };
 
 // Prototype functions
-void simulation(IOScheduler*, queue<IORequest*>&);
+void simulation(IOScheduler*, queue<IORequest>&);
 
 int main(int argc, char* argv[]) {
     int c;
@@ -113,14 +113,14 @@ int main(int argc, char* argv[]) {
     }
     int time, track;
     string line;
-    queue<IORequest*> requestQueue;
+    queue<IORequest> requestQueue;
     while (getline(ifs, line)) {
         if (line[0] == '#') {
             continue;
         }
         istringstream iss(line);
         iss >> time >> track;
-        requestQueue.push(new IORequest(time,track));
+        requestQueue.push(IORequest(time,track));
     }
     ifs.close();
 
@@ -129,19 +129,21 @@ int main(int argc, char* argv[]) {
 
     // Clean up
     delete myIOSched;
-    while (!requestQueue.empty()){
-        delete requestQueue.front();
-        requestQueue.pop();
-    }
 }
 
-void simulation(IOScheduler* myIOSched, queue<IORequest*>& requestQueue){
+void simulation(IOScheduler* myIOSched, queue<IORequest>& requestQueue){
     int currentTime = 0;
-    IORequest* temp;
     while (!requestQueue.empty()){
-        temp = requestQueue.front();
-        temp->print();
-        delete temp;
+        IORequest temp = requestQueue.front();
+        temp.print();
         requestQueue.pop();
     }
+
+    // while (true) {
+    //     if () {
+
+    //     } else {
+    //         currentTime += 1;
+    //     }
+    // }
 }
