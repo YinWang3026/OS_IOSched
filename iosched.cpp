@@ -244,8 +244,8 @@ int simulation(IOScheduler* myIOSched, queue<IORequest*>& requestQueue, vector<I
         if (currentRequest != NULL && currentRequest->track == currentTrack) {
             currentRequest->service_end = currentTime;
             // Request complete - Service end - starting time
-            vtrace("%d:\t%d finish %d track[%d]\n", currentTime, currentRequest->id, 
-                currentRequest->service_end-currentRequest->time, currentTrack);
+            vtrace("%d:\t%d finish %d\n", currentTime, currentRequest->id, 
+                currentRequest->service_end-currentRequest->time);
             completedReqs[currentRequest->id] = currentRequest;
             currentRequest = NULL;
         } 
@@ -263,6 +263,8 @@ int simulation(IOScheduler* myIOSched, queue<IORequest*>& requestQueue, vector<I
             // Issue
             vtrace("%d:\t%d issue %d %d\n", currentTime, 
                 currentRequest->id, currentRequest->track, currentTrack);
+            currentTrack += myIOSched->get_direction();
+            tot_movement += 1;
         }
         // No current request, no pending request
         if (currentRequest == NULL && requestQueue.empty() && myIOSched->get_empty()) {
