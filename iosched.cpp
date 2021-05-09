@@ -1,12 +1,13 @@
-#include <iostream> //cout
-#include <fstream> //ifstream
-#include <sstream> //Stringstream
+#include <iostream> // cout
+#include <fstream> // ifstream
+#include <sstream> // istringstream
 #include <string>
 #include <vector>
 #include <stdio.h>
 #include <getopt.h> //Arg parsing
 #include <stdlib.h>
 #include <queue>
+#include <deque>
 
 using namespace std;
 
@@ -19,6 +20,7 @@ int fFlag = 0;
 #define vtrace(fmt...)  do { if (vFlag) { printf(fmt); fflush(stdout); } } while(0)
 #define qtrace(fmt...)  do { if (qFlag) { printf(fmt); fflush(stdout); } } while(0)
 #define ftrace(fmt...)  do { if (fFlag) { printf(fmt); fflush(stdout); } } while(0)
+#define MAX_OP 10000 // Max number of IO Operations
 
 // Struct
 struct IORequest {
@@ -47,10 +49,9 @@ public:
     virtual ~IOScheduler(){}
     virtual void add_to_queue(IORequest*) = 0;
     virtual IORequest* get_from_queue(int) = 0;
+    virtual bool get_empty() = 0;
     int get_direction(){ return direction; }
-    bool get_empty() { return IOQueue.empty(); }
 protected:
-    queue<IORequest*> IOQueue;
     int direction;
 };
 
@@ -59,64 +60,102 @@ public:
     void add_to_queue(IORequest* req){
         IOQueue.push(req);
     }
-    IORequest* get_from_queue(int currTrack){
-        if (IOQueue.empty()) { return NULL; }
+    IORequest* get_from_queue(int currentTrack){
+        if (IOQueue.empty()) {
+            direction = 0;
+            return NULL; 
+        }
         IORequest* result = IOQueue.front();
         IOQueue.pop();
-        if (result->track > currTrack) {
+        if (result->track > currentTrack) {
             direction = 1;
-        } else if (result->track < currTrack) {
+        } else if (result->track < currentTrack) {
             direction = -1;
         } else {
             direction = 0;
         }
         return result;
     }
+    bool get_empty() { return IOQueue.empty(); }
+private:
+    queue<IORequest*> IOQueue;
 };
 
 class SSTF : public IOScheduler{
 public:
+    SSTF() : IOQueue(MAX_OP, NULL), size(0) {}
     void add_to_queue(IORequest* req){
-
+        IOQueue[req->id] = req;
+        size += 1;
     }
-    IORequest* get_from_queue(int){
-        IORequest* result = NULL;
+    IORequest* get_from_queue(int currentTrack){
+        int resultInd = -1;
+        uint distance = INT_MAX;
+        for(size_t i = 0; i<IOQueue.size(); i++){
+            if (IOQueue[i] != NULL){
+                uint tempDist = abs(IOQueue[i]->track - currentTrack);
+                qtrace("%d:%d ", IOQueue[i]->id, tempDist);
+                if (tempDist < distance){
+                    distance = tempDist;
+                    resultInd = i;
+                }
+            }
+        }
+        qtrace("\n");
+        if (resultInd == -1) {
+            direction = 0;
+            return NULL; 
+        }
+        IORequest* result = IOQueue[resultInd];
+        IOQueue[resultInd] = NULL;
+        size -= 1;
+        if (result->track > currentTrack) {
+            direction = 1;
+        } else if (result->track < currentTrack) {
+            direction = -1;
+        } else {
+            direction = 0;
+        }        
         return result;
     }
+    bool get_empty() { return size == 0; }
+private:
+    vector<IORequest*> IOQueue;
+    int size;
 };
 
-class LOOK : public IOScheduler{
-public:
-    void add_to_queue(IORequest* req){
+// class LOOK : public IOScheduler{
+// public:
+//     void add_to_queue(IORequest* req){
 
-    }
-    IORequest* get_from_queue(int){
-        IORequest* result = NULL;
-        return result;
-    }
-};
+//     }
+//     IORequest* get_from_queue(int){
+//         IORequest* result = NULL;
+//         return result;
+//     }
+// };
 
-class CLOOK : public IOScheduler{
-public:
-    void add_to_queue(IORequest* req){
+// class CLOOK : public IOScheduler{
+// public:
+//     void add_to_queue(IORequest* req){
 
-    }
-    IORequest* get_from_queue(int){
-        IORequest* result = NULL;
-        return result;
-    }
-};
+//     }
+//     IORequest* get_from_queue(int){
+//         IORequest* result = NULL;
+//         return result;
+//     }
+// };
 
-class FLOOK : public IOScheduler{
-public:
-    void add_to_queue(IORequest* req){
+// class FLOOK : public IOScheduler{
+// public:
+//     void add_to_queue(IORequest* req){
 
-    }
-    IORequest* get_from_queue(int){
-        IORequest* result = NULL;
-        return result;
-    }
-};
+//     }
+//     IORequest* get_from_queue(int){
+//         IORequest* result = NULL;
+//         return result;
+//     }
+// };
 
 // Prototype functions
 int simulation(IOScheduler*, queue<IORequest*>&, vector<IORequest*>&);
@@ -138,15 +177,15 @@ int main(int argc, char* argv[]) {
                     case 'j':
                         myIOSched = new SSTF(); // Shortest seek time first
                         break;
-                    case 's':
-                        myIOSched = new LOOK();
-                        break;
-                    case 'c':
-                        myIOSched = new CLOOK();
-                        break;
-                    case 'f':
-                        myIOSched = new FLOOK();
-                        break;
+                    // case 's':
+                    //     myIOSched = new LOOK();
+                    //     break;
+                    // case 'c':
+                    //     myIOSched = new CLOOK();
+                    //     break;
+                    // case 'f':
+                    //     myIOSched = new FLOOK();
+                    //     break;
                     default:
                         cerr << "Error: Unknown algo: " << algo << endl;
                         exit(1);
@@ -255,7 +294,7 @@ int simulation(IOScheduler* myIOSched, queue<IORequest*>& requestQueue, vector<I
         if (currentRequest != NULL && currentRequest->track != currentTrack) {
             // Move the track in my direction
             currentTrack += myIOSched->get_direction();
-            tot_movement += abs(myIOSched->get_direction());
+            tot_movement += 1;
         } 
         // There is no current request, but there are pending requests
         if (currentRequest == NULL && !myIOSched->get_empty()){
@@ -271,7 +310,7 @@ int simulation(IOScheduler* myIOSched, queue<IORequest*>& requestQueue, vector<I
                 continue;
             }
             currentTrack += myIOSched->get_direction();
-            tot_movement += abs(myIOSched->get_direction());
+            tot_movement += 1;
         }
         // No current request, no pending request
         if (currentRequest == NULL && requestQueue.empty() && myIOSched->get_empty()) {
