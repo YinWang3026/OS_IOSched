@@ -67,6 +67,8 @@ public:
             direction = 1;
         } else if (result->track < currTrack) {
             direction = -1;
+        } else {
+            direction = 0;
         }
         return result;
     }
@@ -208,8 +210,8 @@ int main(int argc, char* argv[]) {
         IORequest* req = completedReqs[i];
         req->print_sol();
         total_time = max(total_time, req->service_end);
-        avg_turnaround += (req->service_end - req->time);
-        int wait_time = req->service_start - req->time;
+        avg_turnaround += (req->service_end - req->time); // Service end - req time
+        int wait_time = req->service_start - req->time; // Between service start and req time
         avg_waittime += wait_time;
         max_waittime = max(max_waittime, wait_time);
     }
@@ -240,20 +242,20 @@ int simulation(IOScheduler* myIOSched, queue<IORequest*>& requestQueue, vector<I
             // Add to queue
             myIOSched->add_to_queue(temp);
         }
-        // There is a current request, and its end time is now
+        // There is a current request, and requested track is the current track
         if (currentRequest != NULL && currentRequest->track == currentTrack) {
             currentRequest->service_end = currentTime;
-            // Request complete - Service end - starting time
+            // Request complete
             vtrace("%d:\t%d finish %d\n", currentTime, currentRequest->id, 
                 currentRequest->service_end-currentRequest->time);
             completedReqs[currentRequest->id] = currentRequest;
             currentRequest = NULL;
         } 
-        // There is a current request, and its end time is not now
+        // There is a current request, and requested track is not the current track
         if (currentRequest != NULL && currentRequest->track != currentTrack) {
             // Move the track in my direction
             currentTrack += myIOSched->get_direction();
-            tot_movement += 1;
+            tot_movement += abs(myIOSched->get_direction());
         } 
         // There is no current request, but there are pending requests
         if (currentRequest == NULL && !myIOSched->get_empty()){
@@ -263,8 +265,13 @@ int simulation(IOScheduler* myIOSched, queue<IORequest*>& requestQueue, vector<I
             // Issue
             vtrace("%d:\t%d issue %d %d\n", currentTime, 
                 currentRequest->id, currentRequest->track, currentTrack);
+            // Time goes up right after, so track needs to go up too
+            if (myIOSched->get_direction() == 0) {
+                // No movement, we are on the current strip
+                continue;
+            }
             currentTrack += myIOSched->get_direction();
-            tot_movement += 1;
+            tot_movement += abs(myIOSched->get_direction());
         }
         // No current request, no pending request
         if (currentRequest == NULL && requestQueue.empty() && myIOSched->get_empty()) {
