@@ -46,7 +46,7 @@ public:
     IOScheduler() : direction(1) {} // Direction is always up first
     virtual ~IOScheduler(){}
     virtual void add_to_queue(IORequest*) = 0;
-    virtual IORequest* get_from_queue() = 0;
+    virtual IORequest* get_from_queue(int) = 0;
     int get_direction(){ return direction; }
     bool get_empty() { return IOQueue.empty(); }
 protected:
@@ -59,10 +59,15 @@ public:
     void add_to_queue(IORequest* req){
         IOQueue.push(req);
     }
-    IORequest* get_from_queue(){
+    IORequest* get_from_queue(int currTrack){
         if (IOQueue.empty()) { return NULL; }
         IORequest* result = IOQueue.front();
         IOQueue.pop();
+        if (result->track > currTrack) {
+            direction = 1;
+        } else if (result->track < currTrack) {
+            direction = -1;
+        }
         return result;
     }
 };
@@ -72,8 +77,8 @@ public:
     void add_to_queue(IORequest* req){
 
     }
-    IORequest* get_from_queue(){
-        IORequest* result;
+    IORequest* get_from_queue(int){
+        IORequest* result = NULL;
         return result;
     }
 };
@@ -83,8 +88,8 @@ public:
     void add_to_queue(IORequest* req){
 
     }
-    IORequest* get_from_queue(){
-        IORequest* result;
+    IORequest* get_from_queue(int){
+        IORequest* result = NULL;
         return result;
     }
 };
@@ -94,8 +99,8 @@ public:
     void add_to_queue(IORequest* req){
 
     }
-    IORequest* get_from_queue(){
-        IORequest* result;
+    IORequest* get_from_queue(int){
+        IORequest* result = NULL;
         return result;
     }
 };
@@ -105,8 +110,8 @@ public:
     void add_to_queue(IORequest* req){
 
     }
-    IORequest* get_from_queue(){
-        IORequest* result;
+    IORequest* get_from_queue(int){
+        IORequest* result = NULL;
         return result;
     }
 };
@@ -220,59 +225,50 @@ int main(int argc, char* argv[]) {
 }
 
 int simulation(IOScheduler* myIOSched, queue<IORequest*>& requestQueue, vector<IORequest*>& completedReqs){
-    int tot_movement = 0;
-    int currentTime = 0;
-    int currentTrack = 0; // 1 track = 1 time
+    uint tot_movement = 0;
+    uint currentTime = 0;
+    uint currentTrack = 0; // 1 track = 1 time
     IORequest* currentRequest = NULL;
     vtrace("TRACE\n");
     while (true) {
-        // There is still requests, and current time is its arrival time
-        if (currentTime == requestQueue.front()->time) {
-            vtrace("%d:\t%d add %d\n", currentTime, requestQueue.front()->id, 
-                requestQueue.front()->track);
-            // Add to queue
-            myIOSched->add_to_queue(requestQueue.front());
-            // Pop request
+        // There are requests, and current time is its arrival time
+        if (!requestQueue.empty() && currentTime == requestQueue.front()->time) {
+            // Get request
+            IORequest* temp = requestQueue.front();
             requestQueue.pop();
+            vtrace("%d:\t%d add %d\n", currentTime, temp->id, temp->track);
+            // Add to queue
+            myIOSched->add_to_queue(temp);
         }
         // There is a current request, and its end time is now
-        if ((currentRequest != NULL) && (currentRequest->service_end == currentTime)) {
+        if (currentRequest != NULL && currentRequest->track == currentTrack) {
+            currentRequest->service_end = currentTime;
             // Request complete - Service end - starting time
-            vtrace("%d:\t%d finish %d\n", currentTime, currentRequest->id, 
-                currentRequest->service_end-currentRequest->time);
+            vtrace("%d:\t%d finish %d track[%d]\n", currentTime, currentRequest->id, 
+                currentRequest->service_end-currentRequest->time, currentTrack);
             completedReqs[currentRequest->id] = currentRequest;
             currentRequest = NULL;
-            currentTrack += 1;
-            tot_movement += 1;
-        }
+        } 
         // There is a current request, and its end time is not now
-        if ((currentRequest != NULL) && (currentRequest->service_end != currentTime)) {
-            // Move the track
-            currentTrack += 1;
+        if (currentRequest != NULL && currentRequest->track != currentTrack) {
+            // Move the track in my direction
+            currentTrack += myIOSched->get_direction();
             tot_movement += 1;
-            // currentRequest->remain -= 1;
-        }
+        } 
         // There is no current request, but there are pending requests
-        if ((currentRequest == NULL) && !myIOSched->get_empty()){
-            currentRequest = myIOSched->get_from_queue();
+        if (currentRequest == NULL && !myIOSched->get_empty()){
+            currentRequest = myIOSched->get_from_queue(currentTrack);
             // Start serving this request now
             currentRequest->service_start = currentTime;
-            // Service ends after track time
-            currentRequest->service_end = currentRequest->service_start + abs(currentRequest->track - currentTrack) +
-                currentRequest->time;
-            printf("start[%d] abs[%d] time[%d]\n", currentRequest->service_start, abs(currentRequest->track - currentTrack),
-                currentRequest->time);
             // Issue
-            vtrace("%d:\t%d issue %d %d %d %d\n", currentTime, 
-                currentRequest->id, currentRequest->track, currentTrack, 
-                currentRequest->service_start, currentRequest->service_end);
+            vtrace("%d:\t%d issue %d %d\n", currentTime, 
+                currentRequest->id, currentRequest->track, currentTrack);
         }
         // No current request, no pending request
-        if ((currentRequest == NULL) && requestQueue.empty() && myIOSched->get_empty()) {
+        if (currentRequest == NULL && requestQueue.empty() && myIOSched->get_empty()) {
             break; // End sim
         }
         currentTime += 1; // Time goes up each loop
     }
-
     return tot_movement;
 }
