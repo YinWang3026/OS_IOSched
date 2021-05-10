@@ -62,17 +62,15 @@ public:
     }
     IORequest* get_from_queue(int currentTrack){
         if (IOQueue.empty()) {
-            direction = 0;
             return NULL; 
         }
         IORequest* result = IOQueue.front();
         IOQueue.pop();
+        // Set dir based on position of track
         if (result->track > currentTrack) {
             direction = 1;
         } else if (result->track < currentTrack) {
             direction = -1;
-        } else {
-            direction = 0;
         }
         return result;
     }
@@ -91,7 +89,8 @@ public:
     IORequest* get_from_queue(int currentTrack){
         int resultInd = -1;
         uint distance = INT_MAX;
-        for(size_t i = 0; i<IOQueue.size(); i++){
+        // Find smallest distance
+        for(size_t i = 0; i<MAX_OP; i++){
             if (IOQueue[i] != NULL){
                 uint tempDist = abs(IOQueue[i]->track - currentTrack);
                 qtrace("%d:%d ", IOQueue[i]->id, tempDist);
@@ -103,19 +102,17 @@ public:
         }
         qtrace("\n");
         if (resultInd == -1) {
-            direction = 0;
             return NULL; 
         }
         IORequest* result = IOQueue[resultInd];
         IOQueue[resultInd] = NULL;
         size -= 1;
+        // Set dir based on track
         if (result->track > currentTrack) {
             direction = 1;
         } else if (result->track < currentTrack) {
             direction = -1;
-        } else {
-            direction = 0;
-        }        
+        }  
         return result;
     }
     bool get_empty() { return size == 0; }
@@ -124,16 +121,50 @@ private:
     int size;
 };
 
-// class LOOK : public IOScheduler{
-// public:
-//     void add_to_queue(IORequest* req){
-
-//     }
-//     IORequest* get_from_queue(int){
-//         IORequest* result = NULL;
-//         return result;
-//     }
-// };
+class LOOK : public IOScheduler{
+public:
+    LOOK() : IOQueue(MAX_OP, NULL), size(0) {}
+    void add_to_queue(IORequest* req){
+        IOQueue[req->id] = req;
+        size += 1;
+    }
+    // Helper function, finds the closest request to track
+    int get_closest(int currentTrack){
+        int resultInd = -1;
+        int distance = INT_MAX;
+        // Find smallest distance
+        for(size_t i = 0; i<MAX_OP; i++){
+            if (IOQueue[i] != NULL){
+                int tempDist = (IOQueue[i]->track - currentTrack) * direction;
+                if (0 <= tempDist){
+                    qtrace("%d:%d ", IOQueue[i]->id, tempDist);
+                    if (tempDist < distance){
+                        distance = tempDist;
+                        resultInd = i;
+                    }
+                }
+            }
+        }
+        return resultInd;
+    }
+    IORequest* get_from_queue(int currentTrack){
+        int resultInd = get_closest(currentTrack);
+        if (resultInd == -1) {
+            direction *= -1;
+            qtrace("--> change direction to %d\n", direction);
+            resultInd = get_closest(currentTrack);
+        } 
+        IORequest* result = IOQueue[resultInd];
+        IOQueue[resultInd] = NULL;
+        size -= 1;
+        qtrace("--> %d dir=%d\n", result->id, direction);
+        return result;
+    }
+    bool get_empty() { return size == 0; }
+private:
+    vector<IORequest*> IOQueue;
+    int size;
+};
 
 // class CLOOK : public IOScheduler{
 // public:
@@ -177,9 +208,9 @@ int main(int argc, char* argv[]) {
                     case 'j':
                         myIOSched = new SSTF(); // Shortest seek time first
                         break;
-                    // case 's':
-                    //     myIOSched = new LOOK();
-                    //     break;
+                    case 's':
+                        myIOSched = new LOOK();
+                        break;
                     // case 'c':
                     //     myIOSched = new CLOOK();
                     //     break;
@@ -305,7 +336,7 @@ int simulation(IOScheduler* myIOSched, queue<IORequest*>& requestQueue, vector<I
             vtrace("%d:\t%d issue %d %d\n", currentTime, 
                 currentRequest->id, currentRequest->track, currentTrack);
             // Time goes up right after, so track needs to go up too
-            if (myIOSched->get_direction() == 0) {
+            if (currentRequest->track == currentTrack) {
                 // No movement, we are on the current strip
                 continue;
             }
