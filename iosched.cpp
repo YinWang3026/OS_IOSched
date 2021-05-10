@@ -7,6 +7,7 @@
 #include <getopt.h> //Arg parsing
 #include <stdlib.h>
 #include <queue>
+#include <limits.h> //INT MAX
 
 using namespace std;
 
