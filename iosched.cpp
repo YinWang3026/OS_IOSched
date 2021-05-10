@@ -369,7 +369,7 @@ int main(int argc, char* argv[]) {
     double avg_turnaround = 0;
     double avg_waittime = 0;
     int max_waittime = 0;
-    for (size_t i = 0; i < size; i++){
+    for (int i = 0; i < size; i++){
         IORequest* req = completedReqs[i];
         req->print_sol();
         total_time = max(total_time, req->service_end);
@@ -384,7 +384,7 @@ int main(int argc, char* argv[]) {
 
     // Clean up
     delete myIOSched;
-    for (size_t i = 0; i < size; i++){
+    for (int i = 0; i < size; i++){
         delete completedReqs[i];
     }
 }
