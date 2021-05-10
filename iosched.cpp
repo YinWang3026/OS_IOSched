@@ -211,16 +211,69 @@ private:
     int size;
 };
 
-// class FLOOK : public IOScheduler{
-// public:
-//     void add_to_queue(IORequest* req){
-
-//     }
-//     IORequest* get_from_queue(int){
-//         IORequest* result = NULL;
-//         return result;
-//     }
-// };
+class FLOOK : public IOScheduler{
+public:
+    FLOOK() : ActiveIOQueue(new vector<IORequest*>(MAX_OP, NULL)), ActiveSize(0), 
+        AddIOQueue(new vector<IORequest*>(MAX_OP, NULL)), AddSize(0) {}
+    ~FLOOK() {
+        delete ActiveIOQueue;
+        delete AddIOQueue;
+    }
+    void add_to_queue(IORequest* req){
+        // Only add to add queue
+        (*AddIOQueue)[req->id] = req;
+        AddSize += 1;
+    }
+    // Helper function to get closest
+    int get_closest(int currentTrack){
+        int resultInd = -1;
+        int distance = INT_MAX;
+        // Find smallest distance
+        for(size_t i = 0; i<MAX_OP; i++){
+            if ((*ActiveIOQueue)[i] != NULL){
+                int tempDist = ((*ActiveIOQueue)[i]->track - currentTrack) * direction;
+                if (0 <= tempDist){
+                    qtrace("%d:%d ", (*ActiveIOQueue)[i]->id, tempDist);
+                    if (tempDist < distance){
+                        distance = tempDist;
+                        resultInd = i;
+                    }
+                }
+            }
+        }
+        return resultInd;
+    }
+    IORequest* get_from_queue(int currentTrack){
+        if (ActiveSize == 0){
+            // Active Empty, swap
+            qtrace("Queue swapped.\n");
+            vector<IORequest*>* temp = ActiveIOQueue;
+            ActiveIOQueue = AddIOQueue;
+            AddIOQueue = temp;
+            ActiveSize = AddSize;
+            AddSize = 0;
+        }
+        // Look in active queue
+        int resultInd = get_closest(currentTrack);
+        if (resultInd == -1) {
+            // Nothing found, change direction
+            direction *= -1;
+            qtrace("--> change direction to %d\n", direction);
+            resultInd = get_closest(currentTrack);
+        }
+        IORequest* result = (*ActiveIOQueue)[resultInd];
+        (*ActiveIOQueue)[resultInd] = NULL;
+        ActiveSize -= 1;
+        qtrace("--> %d dir=%d\n", result->id, direction);
+        return result;
+    }
+    bool get_empty() { return (ActiveSize == 0 && AddSize == 0); }
+private:
+    vector<IORequest*>* ActiveIOQueue;
+    int ActiveSize;
+    vector<IORequest*>* AddIOQueue;
+    int AddSize;
+};
 
 // Prototype functions
 int simulation(IOScheduler*, queue<IORequest*>&, vector<IORequest*>&);
@@ -248,9 +301,9 @@ int main(int argc, char* argv[]) {
                     case 'c':
                         myIOSched = new CLOOK();
                         break;
-                    // case 'f':
-                    //     myIOSched = new FLOOK();
-                    //     break;
+                    case 'f':
+                        myIOSched = new FLOOK();
+                        break;
                     default:
                         cerr << "Error: Unknown algo: " << algo << endl;
                         exit(1);
