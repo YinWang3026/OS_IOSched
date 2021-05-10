@@ -7,7 +7,6 @@
 #include <getopt.h> //Arg parsing
 #include <stdlib.h>
 #include <queue>
-#include <deque>
 
 using namespace std;
 
@@ -25,7 +24,7 @@ int fFlag = 0;
 // Struct
 struct IORequest {
     static int count;
-    IORequest(int t, int tr) : id(count++), time(t), remain(t),
+    IORequest(int t, int tr) : id(count++), time(t),
         track(tr), service_start(-1), service_end(-1) {}
     void print(){
         printf("id[%d], time[%d], track[%d]\n", id, time, track); 
@@ -34,8 +33,7 @@ struct IORequest {
         printf("%5d: %5d %5d %5d\n", id, time, service_start, service_end);
     }
     int id;
-    int time;
-    int remain;
+    int time; // Arrival time
     int track;
     int service_start;
     int service_end;
@@ -49,7 +47,7 @@ public:
     virtual ~IOScheduler(){}
     virtual void add_to_queue(IORequest*) = 0;
     virtual IORequest* get_from_queue(int) = 0;
-    virtual bool get_empty() = 0;
+    virtual bool get_empty() = 0; // Is queue empty
     int get_direction(){ return direction; }
 protected:
     int direction;
@@ -148,8 +146,10 @@ public:
         return resultInd;
     }
     IORequest* get_from_queue(int currentTrack){
+        // Look in one direction for closest
         int resultInd = get_closest(currentTrack);
         if (resultInd == -1) {
+            // Nothing found, change direction and search again
             direction *= -1;
             qtrace("--> change direction to %d\n", direction);
             resultInd = get_closest(currentTrack);
@@ -192,9 +192,11 @@ public:
         return resultInd;
     }
     IORequest* get_from_queue(int currentTrack){
+        // Search in one direction
         direction = 1;
         int resultInd = get_closest(currentTrack);
         if (resultInd == -1) {
+            // Nothing found, loop back to 0
             qtrace("to bottom ");
             direction = -1;
             resultInd = get_closest(0);
@@ -245,7 +247,7 @@ public:
     }
     IORequest* get_from_queue(int currentTrack){
         if (ActiveSize == 0){
-            // Active Empty, swap
+            // Active empty, swap
             qtrace("Queue swapped.\n");
             vector<IORequest*>* temp = ActiveIOQueue;
             ActiveIOQueue = AddIOQueue;
@@ -269,6 +271,7 @@ public:
     }
     bool get_empty() { return (ActiveSize == 0 && AddSize == 0); }
 private:
+    // Pointers
     vector<IORequest*>* ActiveIOQueue;
     int ActiveSize;
     vector<IORequest*>* AddIOQueue;
@@ -334,6 +337,8 @@ int main(int argc, char* argv[]) {
         cerr << "Error: Could not open input file.\n";
         exit(1);
     }
+
+    // Parsing
     int time, track;
     string line;
     queue<IORequest*> requests;
@@ -351,7 +356,7 @@ int main(int argc, char* argv[]) {
         exit(1);
     }
 
-    // Size and results
+    // Size
     int size = requests.size();
     vector<IORequest*> completedReqs(size,NULL);
 
