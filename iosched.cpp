@@ -166,16 +166,50 @@ private:
     int size;
 };
 
-// class CLOOK : public IOScheduler{
-// public:
-//     void add_to_queue(IORequest* req){
-
-//     }
-//     IORequest* get_from_queue(int){
-//         IORequest* result = NULL;
-//         return result;
-//     }
-// };
+class CLOOK : public IOScheduler{
+public:
+    CLOOK() : IOQueue(MAX_OP, NULL), size(0) {}
+    void add_to_queue(IORequest* req){
+        IOQueue[req->id] = req;
+        size += 1;
+    }
+    int get_closest(int currentTrack){
+        int resultInd = -1;
+        int distance = INT_MAX;
+        // Find smallest distance
+        for(size_t i = 0; i<MAX_OP; i++){
+            if (IOQueue[i] != NULL){
+                int tempDist = IOQueue[i]->track - currentTrack;
+                if (0 <= tempDist){
+                    qtrace("%d:%d ", IOQueue[i]->id, tempDist);
+                    if (tempDist < distance){
+                        distance = tempDist;
+                        resultInd = i;
+                    }
+                }
+            }
+        }
+        return resultInd;
+    }
+    IORequest* get_from_queue(int currentTrack){
+        direction = 1;
+        int resultInd = get_closest(currentTrack);
+        if (resultInd == -1) {
+            qtrace("to bottom ");
+            direction = -1;
+            resultInd = get_closest(0);
+        } 
+        IORequest* result = IOQueue[resultInd];
+        IOQueue[resultInd] = NULL;
+        size -= 1;
+        qtrace("--> %d\n", result->id);
+        return result;
+    }
+    bool get_empty() { return size == 0; }
+private:
+    vector<IORequest*> IOQueue;
+    int size;
+};
 
 // class FLOOK : public IOScheduler{
 // public:
@@ -211,9 +245,9 @@ int main(int argc, char* argv[]) {
                     case 's':
                         myIOSched = new LOOK();
                         break;
-                    // case 'c':
-                    //     myIOSched = new CLOOK();
-                    //     break;
+                    case 'c':
+                        myIOSched = new CLOOK();
+                        break;
                     // case 'f':
                     //     myIOSched = new FLOOK();
                     //     break;
@@ -297,9 +331,9 @@ int main(int argc, char* argv[]) {
 }
 
 int simulation(IOScheduler* myIOSched, queue<IORequest*>& requestQueue, vector<IORequest*>& completedReqs){
-    uint tot_movement = 0;
-    uint currentTime = 0;
-    uint currentTrack = 0; // 1 track = 1 time
+    int tot_movement = 0;
+    int currentTime = 0;
+    int currentTrack = 0; // 1 track = 1 time
     IORequest* currentRequest = NULL;
     vtrace("TRACE\n");
     while (true) {
